@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NEXUS-Ω 이동 심사 시스템</title>
+  <style>
+    @font-face {
+      font-family: 'DOSIyagiBoldface';
+      src: url('DOSIyagiBoldface.ttf') format('truetype');
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green: #00ff9f;
+      --cyan: #00e5ff;
+      --red: #ff2a2a;
+      --dim: #00aa6a;
+      --bg: #000000;
+      --border: #00ff9f44;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--green);
+      font-family: 'DOSIyagiBoldface', sans-serif;
+      font-size: 15px;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* 배경 스캔라인 효과 */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,255,159,0.015) 2px,
+        rgba(0,255,159,0.015) 4px
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* 배경 깜빡임 노이즈 */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 50%, rgba(0,255,159,0.04) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+      animation: flicker 8s infinite;
+    }
+
+    @keyframes flicker {
+      0%,100% { opacity: 1; }
+      92% { opacity: 1; }
+      93% { opacity: 0.6; }
+      94% { opacity: 1; }
+      96% { opacity: 0.8; }
+      97% { opacity: 1; }
+    }
+
+    .terminal {
+      position: relative;
+      z-index: 1;
+      width: 560px;
+      min-height: 420px;
+      border: 1px solid var(--green);
+      padding: 40px 44px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      box-shadow:
+        0 0 12px rgba(0,255,159,0.15),
+        0 0 40px rgba(0,255,159,0.06),
+        inset 0 0 30px rgba(0,255,159,0.03);
+    }
+
+    /* 상단 헤더바 */
+    .terminal-header {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 28px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      gap: 10px;
+    }
+
+    .terminal-header span {
+      font-size: 10px;
+      color: var(--dim);
+      letter-spacing: 0.12em;
+    }
+
+    .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--dim);
+      animation: blink 2s infinite;
+    }
+
+    @keyframes blink {
+      0%,100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+
+    /* 하단 푸터바 */
+    .terminal-footer {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      justify-content: space-between;
+    }
+
+    .terminal-footer span {
+      font-size: 9px;
+      color: var(--dim);
+      letter-spacing: 0.1em;
+    }
+
+    #screen {
+      text-align: center;
+      line-height: 2;
+      width: 100%;
+    }
+
+    .line { margin-bottom: 2px; }
+
+    .line.warning {
+      color: var(--red);
+    }
+
+    .line.warning-big {
+      color: var(--red);
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      animation: warning-blink 0.8s infinite;
+    }
+
+    @keyframes warning-blink {
+      0%,100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+
+    .line.highlight {
+      color: var(--cyan);
+      text-shadow: 0 0 8px var(--cyan);
+    }
+
+    .line.dim { color: var(--dim); }
+
+    button.blue {
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    button.blue::before { background: var(--cyan); }
+
+    button.blue:hover {
+      color: #000;
+      box-shadow: 0 0 14px rgba(0,229,255,0.4);
+    }
+
+    .buttons {
+      margin-top: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+    }
+
+    button {
+      font-family: 'DOSIyagiBoldface', sans-serif;
+      font-size: 13px;
+      padding: 8px 28px;
+      background: transparent;
+      border: 1px solid var(--green);
+      color: var(--green);
+      cursor: pointer;
+      letter-spacing: 0.1em;
+      transition: all 0.15s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    button::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--green);
+      transform: translateX(-100%);
+      transition: transform 0.15s;
+      z-index: -1;
+    }
+
+    button:hover {
+      color: #000;
+      text-shadow: none;
+      box-shadow: 0 0 14px rgba(0,255,159,0.4);
+    }
+
+    button:hover::before { transform: translateX(0); }
+
+    button.danger {
+      border-color: var(--red);
+      color: var(--red);
+    }
+
+    button.danger::before { background: var(--red); }
+
+    button.danger:hover {
+      color: #000;
+      box-shadow: 0 0 14px rgba(255,42,42,0.4);
+    }
+
+    /* 초기화 버튼 (박스형) */
+    .init-btn {
+      font-family: 'DOSIyagiBoldface', sans-serif;
+      font-size: 13px;
+      padding: 12px 28px;
+      background: transparent;
+      border: 1px solid var(--green);
+      color: var(--green);
+      cursor: pointer;
+      letter-spacing: 0.1em;
+      margin-top: 28px;
+      transition: all 0.15s;
+      position: relative;
+      overflow: hidden;
+      animation: pulse-border 2s infinite;
+    }
+
+    @keyframes pulse-border {
+      0%,100% { box-shadow: 0 0 6px rgba(0,255,159,0.2); }
+      50% { box-shadow: 0 0 18px rgba(0,255,159,0.5); }
+    }
+
+    .init-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--green);
+      transform: translateX(-100%);
+      transition: transform 0.15s;
+      z-index: -1;
+    }
+
+    .init-btn:hover { color: #000; }
+    .init-btn:hover::before { transform: translateX(0); }
+
+    input[type="text"], input[type="number"] {
+      font-family: 'DOSIyagiBoldface', sans-serif;
+      font-size: 14px;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid var(--green);
+      color: var(--green);
+      outline: none;
+      width: 200px;
+      padding: 4px 4px;
+      text-align: center;
+      caret-color: var(--green);
+    }
+
+    input::placeholder { color: var(--dim); }
+
+    .input-row {
+      margin: 14px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      color: var(--dim);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+    }
+
+    /* 커서 깜빡임 */
+    .cursor {
+      display: inline-block;
+      width: 8px;
+      height: 15px;
+      background: var(--green);
+      margin-left: 2px;
+      vertical-align: middle;
+      animation: blink 0.8s infinite;
+    }
+  </style>
+</head>
+<body>
+<div class="terminal">
+  <div class="terminal-header">
+    <div class="dot"></div>
+    <span>NEXUS-Ω TERMINAL v4.1.0</span>
+    <span style="margin-left:auto;" id="clock"></span>
+  </div>
+
+  <div id="screen"></div>
+
+  <div class="terminal-footer">
+    <span>SEC-LEVEL: ALPHA</span>
+    <span id="sessionId"></span>
+    <span>ENCRYPTED</span>
+  </div>
+</div>
+
+<script>
+  const screen = document.getElementById('screen');
+  let regretCount = 0;
+  let userName = '';
+  let planetNum = 0;
+  let typing = false;
+
+  // 시계
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('clock').textContent =
+      now.toLocaleTimeString('ko-KR', { hour12: false });
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // 세션 ID 랜덤 생성
+  document.getElementById('sessionId').textContent =
+    'SID:' + Math.random().toString(36).substr(2,8).toUpperCase();
+
+  function clearScreen() { screen.innerHTML = ''; }
+
+  // 타이핑 효과 출력
+  function typeText(text, className = '', delay = 0) {
+    return new Promise(resolve => {
+      setTimeout(() => {
+        const div = document.createElement('div');
+        div.className = 'line' + (className ? ' ' + className : '');
+        screen.appendChild(div);
+
+        if (!text) { resolve(); return; }
+
+        let i = 0;
+        const speed = 28;
+        function type() {
+          if (i < text.length) {
+            div.textContent += text[i++];
+            setTimeout(type, speed);
+          } else {
+            resolve();
+          }
+        }
+        type();
+      }, delay);
+    });
+  }
+
+  // 즉시 출력 (빈 줄 등)
+  function printInstant(text, className = '') {
+    const div = document.createElement('div');
+    div.className = 'line' + (className ? ' ' + className : '');
+    div.textContent = text;
+    screen.appendChild(div);
+  }
+
+  function printHTML(html) {
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    screen.appendChild(div);
+  }
+
+  function buttons(choices) {
+    const wrap = document.createElement('div');
+    wrap.className = 'buttons';
+    choices.forEach(([label, fn, cls]) => {
+      const btn = document.createElement('button');
+      btn.textContent = label;
+      btn.className = cls || '';
+      btn.onclick = fn;
+      wrap.appendChild(btn);
+    });
+    screen.appendChild(wrap);
+  }
+
+  // 타이핑 순차 출력 헬퍼
+  async function typeLines(lines) {
+    for (const [text, cls, gap] of lines) {
+      if (text === '') { printInstant(''); await sleep(80); }
+      else await typeText(text, cls || '', gap || 0);
+    }
+  }
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  // ── Scene 01-1 ──────────────────────────────────────
+  async function scene01() {
+    clearScreen();
+    await typeLines([
+      ['NEXUS-Ω 이동 심사 시스템에 접속되었습니다.', 'highlight'],
+    ]);
+    await sleep(300);
+    printHTML(`<div style="text-align:center;">
+      <button class="init-btn" onclick="scene01b()">심사 프로토콜 초기화 중...</button>
+    </div>`);
+  }
+
+  // ── Scene 01-2 ──────────────────────────────────────
+  async function scene01b() {
+    clearScreen();
+    await typeLines([
+      ['사용자 상태 진단을 시작합니다.', ''],
+      ['모든 응답은 자동으로 기록 및 보존됩니다.', 'dim'],
+      ['', ''],
+    ]);
+    buttons([['진단 시작', () => scene01c()]]);
+  }
+
+  // ── Scene 01-3 ──────────────────────────────────────
+  async function scene01c() {
+    clearScreen();
+    await typeLines([
+      ['당신은 지쳤습니까?', ''],
+      ['', ''],
+    ]);
+    buttons([
+      ['지쳤습니다.', () => scene02()],
+      ['지쳐있지 않습니다.', () => scene04()],
+    ]);
+  }
+
+  // ── Scene 02-1 ──────────────────────────────────────
+  async function scene02() {
+    clearScreen();
+    await typeLines([
+      ['사용자의 피로 상태가 감지되었습니다.', ''],
+      ['귀하의 현재 상태가 기록됩니다.', 'dim'],
+      ['', ''],
+    ]);
+    buttons([['계속', () => scene02b()]]);
+  }
+
+  // ── Scene 02-2 ──────────────────────────────────────
+  async function scene02b() {
+    clearScreen();
+    await typeLines([
+      ['당신의 선택을 후회합니까?', ''],
+      ['', ''],
+    ]);
+    buttons([
+      ['후회합니다.', () => onRegret()],
+      ['후회하지 않습니다.', () => scene04()],
+    ]);
+  }
+
+  // ── 후회 카운터 ──────────────────────────────────────
+  function onRegret() {
+    regretCount++;
+    if (regretCount >= 3) sceneB1();
+    else sceneLoopA();
+  }
+
+  // ── 루프 A ──────────────────────────────────────────
+  async function sceneLoopA() {
+    clearScreen();
+    await typeLines([
+      ['시스템은 당신의 선택을 기억합니다.', 'dim'],
+      ['', ''],
+    ]);
+    buttons([['계속', () => sceneLoopB()]]);
+  }
+
+  // ── 루프 B ──────────────────────────────────────────
+  async function sceneLoopB() {
+    clearScreen();
+    await typeLines([
+      ['당신의 선택을 후회합니까?', ''],
+      ['', ''],
+    ]);
+    buttons([
+      ['후회합니다.', () => onRegret()],
+      ['후회하지 않습니다.', () => scene04()],
+    ]);
+  }
+
+  // ── 결말 B-1 ────────────────────────────────────────
+  async function sceneB1() {
+    clearScreen();
+    await typeLines([
+      ['경고!', 'warning-big'],
+      ['반복적 상태 이상이 감지되었습니다.', 'warning'],
+      ['', ''],
+    ]);
+    buttons([['계속', () => sceneB2(), 'danger']]);
+  }
+
+  // ── 결말 B-2 ────────────────────────────────────────
+  async function sceneB2() {
+    clearScreen();
+    await typeLines([
+      ['귀하는 위험 시민 등급으로 재분류됩니다.', 'warning'],
+      ['이동 신청 권한이 박탈되었습니다.', 'warning'],
+      ['본 세션을 강제 종료합니다.', 'warning'],
+      ['', ''],
+    ]);
+    buttons([['재시도', () => sceneB3(), 'danger']]);
+  }
+
+  // ── 결말 B-3 ────────────────────────────────────────
+  async function sceneB3() {
+    clearScreen();
+    await typeLines([
+      ['정신 안정화 격리 프로토콜이 개시됩니다.', 'warning'],
+      ['담당 감시관에게 귀하의 정보가 전송되었습니다.', 'warning'],
+      ['', ''],
+    ]);
+    buttons([['종료', () => { regretCount = 0; scene01(); }]]);
+  }
+
+  // ── Scene 04 ────────────────────────────────────────
+  async function scene04() {
+    clearScreen();
+    await typeLines([
+      ['훌륭합니다!', 'highlight'],
+      ['당신의 선택에 책임을 지십시오.', ''],
+      ['', ''],
+    ]);
+    buttons([['확인', () => scene05()]]);
+  }
+
+  // ── Scene 05-1 ───────────────────────────────────────
+  async function scene05() {
+    clearScreen();
+    await typeLines([
+      ['신원을 확인합니다.', ''],
+      ['전 과정의 응답 데이터는', 'dim'],
+      ['NEXUS-Ω 중앙 데이터베이스에 영구 기록되며', 'dim'],
+      ['삭제 및 수정이 불가합니다.', 'dim'],
+      ['', ''],
+    ]);
+    buttons([['계속', () => scene05b()]]);
+  }
+
+  // ── Scene 05-2 ───────────────────────────────────────
+  async function scene05b() {
+    clearScreen();
+    await typeLines([
+      ['신원 정보를 입력하십시오.', ''],
+      ['', ''],
+    ]);
+    printHTML(`
+      <div class="input-row">
+        <span>이름을 입력하십시오</span>
+        <input type="text" id="inputName" placeholder="NAME">
+      </div>
+      <div class="input-row">
+        <span>현재 위치한 행성 번호를 입력하십시오</span>
+        <input type="number" id="inputPlanet" placeholder="000" min="1">
+      </div>
+      <div class="buttons">
+        <button class="blue" onclick="submitIdentity()">제출</button>
+      </div>
+    `);
+  }
+
+  function submitIdentity() {
+    const nameInput = document.getElementById('inputName').value.trim();
+    const planetInput = parseInt(document.getElementById('inputPlanet').value);
+    if (!nameInput) { alert('이름을 입력하십시오.'); return; }
+    if (!planetInput || planetInput < 1) { alert('현재 위치한 행성의 분류 번호를 입력하십시오.'); return; }
+    userName = nameInput;
+    planetNum = planetInput;
+    sceneA();
+  }
+
+  // ── 결말 A ──────────────────────────────────────────
+  async function sceneA() {
+    clearScreen();
+    const destNum = planetNum * 2 + 7;
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let letters = '';
+    const pool = alphabet.split('');
+    for (let i = 0; i < 4; i++) {
+      const idx = Math.floor(Math.random() * pool.length);
+      letters += pool.splice(idx, 1)[0];
+    }
+    const destCode = '행성 ' + letters + destNum;
+    await typeLines([
+      [userName + ', 귀하의 이동 신청이 승인되었습니다.', 'highlight'],
+      ['배정된 목적지: ' + destCode, 'highlight'],
+      ['', ''],
+      ['귀하의 안전한 여정을 바랍니다.', 'dim'],
+      ['', ''],
+      ['— NEXUS-Ω', 'dim'],
+      ['', ''],
+    ]);
+    buttons([['완료', () => { regretCount = 0; scene01(); }]]);
+  }
+
+  scene01();
+</script>
+</body>
+</html>
